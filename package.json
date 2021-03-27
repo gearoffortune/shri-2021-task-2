@@ -1,0 +1,36 @@
+{
+  "name": "shri-2021-task-2",
+  "version": "1.0.0",
+  "description": "В этом репозитории находятся материалы тестового задания «Данные для Stories» для [17-й Школы разработки интерфейсов](https://yandex.ru/promo/academy/shri) (лето-2021, Москва).",
+  "main": "main.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yndx-shri/shri-2021-task-2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yndx-shri/shri-2021-task-2/issues"
+  },
+  "homepage": "https://github.com/yndx-shri/shri-2021-task-2#readme",
+  "devDependencies": {
+    "@babel/core": "^7.13.13",
+    "@types/node": "^14.14.35",
+    "@types/node-polyglot": "^2.4.1",
+    "babel-loader": "^8.2.2",
+    "ts-loader": "^8.0.18",
+    "typescript": "^4.2.3",
+    "webpack": "^5.28.0",
+    "webpack-cli": "^4.5.0"
+  },
+  "dependencies": {
+    "node-polyglot": "^2.4.0"
+  }
+}
