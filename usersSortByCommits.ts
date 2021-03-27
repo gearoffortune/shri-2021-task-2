@@ -17,6 +17,7 @@ export function getUsersSortByCommits(
         }, 0),
       };
     })
+    .filter((user) => user.commits !== 0)
     .sort((a, b) => {
       return b.commits - a.commits === 0 ? a.id - b.id : b.commits - a.commits;
     })
