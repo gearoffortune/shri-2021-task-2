@@ -27,7 +27,7 @@ module.exports = {
     rules: [
       // JavaScript: Use Babel to transpile JavaScript files
       // { test: /\.js$/, use: ['babel-loader'] },
-      {test: /\.(ts|js)$/, use: ['babel-loader']},
+      {test: /\.ts$/, use: ['ts-loader']},
     ],
   },
 }
