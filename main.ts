@@ -1,8 +1,10 @@
-import { ActivityData, ChartData, DiagramData, LeadersData, StoryData, VoteData, User as StoryUser } from './examples/stories';
+import { StoryData } from './examples/stories';
 import {Commit, Entity, Sprint, User, Comment, SprintId, Summary} from './examples/types'
 import {getActivityData} from './activityData.ts'
-const Polyglot = require('node-polyglot')
-// const json = require('./examples/input.json') as Entity[];
+import {getDiagramData} from './diagramData.ts'
+import {getLeadersData} from './leadersData.ts'
+import {getChartData} from './chartData.ts'
+import {getVoteData} from './voteData.ts'
 
 
 export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): StoryData {
@@ -12,10 +14,10 @@ export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}
   
   const relevantToCurrentSprint = entities.filter(entity => {
     if(entity.type==='Comment'){
-      return currentSprint.startAt < entity.createdAt && entity.createdAt < currentSprint.finishAt ;
+      return currentSprint.startAt <= entity.createdAt && entity.createdAt <= currentSprint.finishAt ;
     }
     if(entity.type==='Commit'){
-      return currentSprint.startAt < entity.timestamp && entity.timestamp < currentSprint.finishAt ;
+      return currentSprint.startAt <= entity.timestamp && entity.timestamp <= currentSprint.finishAt ;
     }
   })
   const allSummaries = entities.filter(entity => entity.type === 'Summary') as Summary[];
@@ -23,14 +25,13 @@ export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}
   const allCommits = entities.filter(entity => entity.type==='Commit') as Commit[];
 
   const commitsFromCurrentSprint = relevantToCurrentSprint.filter(x => x.type==='Commit') as Commit[];
-  const leadersData = getLeadersData(allUsers, commitsFromCurrentSprint)
+  const leadersData = getLeadersData(currentSprint.name, allUsers, commitsFromCurrentSprint)
 
   
   const commentsWithLikes = relevantToCurrentSprint.filter(entity => entity.type==='Comment'&&entity.likes.length > 0) as Comment[];
-  const voteData = getVoteData(allUsers, commentsWithLikes)
+  const voteData = getVoteData(currentSprint.name, allUsers, commentsWithLikes)
   const chartData = getChartData(allUsers, allCommits, commitsFromCurrentSprint, sprints, currentSprint)
-  const polyglot = new Polyglot({ locale: "ru" });
-  const diagramData = getDiagramData(commitsFromCurrentSprint, currentSprint, previousSprint);
+  const diagramData = getDiagramData(currentSprint.name,commitsFromCurrentSprint, previousSprint, allCommits, allSummaries);
   const activityData = getActivityData(currentSprint, commitsFromCurrentSprint);
   return [
     {alias: 'leaders', data: leadersData},
@@ -39,196 +40,5 @@ export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}
     {alias: 'diagram', data: diagramData},
     {alias: 'activity', data: activityData}
   ]
-  function getDiagramData(currentCommits: Commit[], currentSprint: Sprint, previousSprint: Sprint): DiagramData{
-    polyglot.extend({num_commits: "%{smart_count} коммит |||| %{smart_count} коммита |||| %{smart_count} коммитов "})
-    polyglot.extend({num_lines: "%{smart_count} строка |||| %{smart_count} строки |||| %{smart_count} строк "})
-    const prevCommits = entities.filter(entity => entity.type === 'Commit' && previousSprint.startAt < entity.timestamp && entity.timestamp < previousSprint.finishAt) as Commit[]
-    const currentCommitsWithLOC = currentCommits.map((commit) => {
-      return {
-        linesOfCode: commit.summaries.reduce((acc: number, summary) => {
-          if (typeof summary === 'number') {
-            const s = allSummaries.find(s => s.id === summary)
-            return acc + s.removed + s.added;
-          } else {
-            return acc + summary.removed + summary.added
-          }
-        }, 0) as number,
-        ...commit
-      }
-    })
-    const prevCommitsWithLOC = prevCommits.map((commit) => {
-      return {
-        linesOfCode: commit.summaries.reduce((acc: number, summary) => {
-          if (typeof summary === 'number') {
-            const s = allSummaries.find(s => s.id === summary)
-            return acc + s.removed + s.added;
-          } else {
-            return acc + summary.removed + summary.added
-          }
-        }, 0) as number,
-        ...commit
-      }
-    })
-    const diff = currentCommits.length - prevCommits.length
-    /**
-     * 
-     */
-    const currentByAmount = [
-      currentCommitsWithLOC.filter(commit => commit.linesOfCode > 1000),
-      currentCommitsWithLOC.filter(commit => commit.linesOfCode > 500 && commit.linesOfCode <= 1000),
-      currentCommitsWithLOC.filter(commit => commit.linesOfCode > 100 && commit.linesOfCode <= 500),
-      currentCommitsWithLOC.filter(commit => commit.linesOfCode > 0 && commit.linesOfCode <= 100),
-    ]
-    .map(commits => commits.reduce((acc, iter) => acc + 1, 0))
-    const prevByAmount = [
-      prevCommitsWithLOC.filter(commit => commit.linesOfCode > 1000),
-      prevCommitsWithLOC.filter(commit => commit.linesOfCode > 500 && commit.linesOfCode <= 1000),
-      prevCommitsWithLOC.filter(commit => commit.linesOfCode > 100 && commit.linesOfCode <= 500),
-      prevCommitsWithLOC.filter(commit => commit.linesOfCode > 0 && commit.linesOfCode <= 100),
-    ]
-    .map(commits => commits.reduce((acc, iter) => acc + 1, 0))
-
-    function getDifferenceText(a:number, b: number): string {
-      const difference = a - b;
-      if(difference > 0){
-        return '+' + polyglot.t('num_commits', difference)
-      }
-      if(difference < 0){
-        return '-' + polyglot.t('num_commits', -difference)
-      }
-      return polyglot.t('num_commits', difference)
-    }
-
-    return {
-      title: "Размер коммитов",
-      subtitle: currentSprint.name,
-      totalText: `${polyglot.t('num_commits', currentCommits.length)}`,
-      differenceText: `${
-        diff > 0 ? `+${diff} с прошлого спринта` : `${diff} с прошлого спринта`
-      }`,
-      categories: [
-        {
-          title: '> 1001 строки',
-          valueText: polyglot.t('num_commits', currentByAmount[0]),
-          differenceText: getDifferenceText(currentByAmount[0], prevByAmount[0])
-        },
-
-        {
-          title: '501 — 1000 строк',
-          valueText: polyglot.t('num_commits', currentByAmount[1]),
-          differenceText: getDifferenceText(currentByAmount[1], prevByAmount[1])
-        },
-
-        {
-          title: '101 — 500 строк',
-          valueText: polyglot.t('num_commits', currentByAmount[2]),
-          differenceText: getDifferenceText(currentByAmount[2], prevByAmount[2])
-        },
-
-        {
-          title: '1 — 100 строк',
-          valueText: polyglot.t('num_commits', currentByAmount[3]),
-          differenceText: getDifferenceText(currentByAmount[3], prevByAmount[3])
-        },
-
-      ]
-    }
-  }
-
-  function getLeadersData(allUsers: User[], commits: Commit[]): LeadersData {
-    return { 
-      "title": "Больше всего коммитов",
-      "subtitle": currentSprint.name,
-      "emoji": "👑",
-      users: getUsersSortByCommits(allUsers, commits)
-    };
-  }
-
-  function getChartData(
-    allUsers: User[], 
-    allCommits: Commit[], 
-    currentCommits: Commit[], 
-    sprints: Sprint[],
-    currentSprint: Sprint,
-    ): ChartData {
-    return {
-      title: "Коммиты",
-      subtitle: currentSprint.name,
-      values: sprints
-      .sort((a, b) => a.id - b.id)
-      .map(sprint => {
-        const relevantCommits = allCommits.filter(commit => sprint.startAt <= commit.timestamp && commit.timestamp <= sprint.finishAt);
-        return sprint.id === currentSprint.id ? {
-          title: String(sprint.id),
-          value: relevantCommits.length,
-          active: true,
-          hint: sprint.name
-        } : {
-          title: String(sprint.id),
-          value: relevantCommits.length,
-          hint: sprint.name
-        }
-
-      }),
-      users: getUsersSortByCommits(allUsers, currentCommits)
-    }
-  }
-  
-  function getUsersSortByCommits(allUsers: User[], commits: Commit[]): StoryUser[] {
-    return allUsers.map(user => {
-      return {
-        id: user.id,
-        name: user.name,
-        avatar: user.avatar,
-        commits: commits.reduce((accum, iter) => {
-          return iter.author === user || iter.author === user.id ? accum + 1 : accum;
-        }, 0)
-      };
-    })
-      .sort((a, b) => {
-        return b.commits - a.commits === 0 ?
-        a.id - b.id :
-        b.commits - a.commits
-      })
-      .map(user => { return { 
-        id: user.id, 
-        name: user.name, 
-        avatar: user.avatar, 
-        valueText: String(user.commits) 
-      }; 
-    });
-  }
-
-  function getVoteData(allUsers: User[], commentsWithLikes: Comment[]): VoteData {
-    const polyglot = new Polyglot({ locale: "ru" });
-    polyglot.extend({num_votes: "%{smart_count} голос |||| %{smart_count} голоса |||| %{smart_count} голосов "})
-    return {
-      "title": "Самый 🔎 внимательный разработчик",
-      "subtitle": currentSprint.name,
-      "emoji": "🔎",
-      users: allUsers.map(user => {
-      return { 
-         id: user.id,
-         name: user.name, 
-         avatar: user.avatar, 
-         likes: commentsWithLikes.reduce((accum, iter) =>{ 
-           return iter.author === user || iter.author === user.id ? accum + iter.likes.length : accum 
-          }, 0) };
-      })
-      .sort((a, b) => {
-        return b.likes - a.likes === 0 ?
-        a.id - b.id :
-        b.likes - a.likes
-      })
-      .map(user => {return {
-        id: user.id,
-        name: user.name,
-        avatar: user.avatar,
-        valueText: polyglot.t('num_votes', user.likes)
-      }
-    })
-    }
-  }
 }
-// console.log(JSON.stringify(prepareData(json, {sprintId: 977})));
 module.exports = { prepareData }
