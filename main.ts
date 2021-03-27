@@ -155,9 +155,9 @@ export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}
       title: "Коммиты",
       subtitle: currentSprint.name,
       values: sprints
-      .sort((a, b) => a.id.toString().charCodeAt(0) - b.id.toString().charCodeAt(0))
+      .sort((a, b) => a.id - b.id)
       .map(sprint => {
-        const relevantCommits = allCommits.filter(commit => sprint.startAt < commit.timestamp && commit.timestamp < sprint.finishAt);
+        const relevantCommits = allCommits.filter(commit => sprint.startAt <= commit.timestamp && commit.timestamp <= sprint.finishAt);
         return sprint.id === currentSprint.id ? {
           title: String(sprint.id),
           value: relevantCommits.length,
@@ -187,7 +187,7 @@ export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}
     })
       .sort((a, b) => {
         return b.commits - a.commits === 0 ?
-        a.id.toString().charCodeAt(0) - b.id.toString().charCodeAt(0) :
+        a.id - b.id :
         b.commits - a.commits
       })
       .map(user => { return { 
@@ -217,7 +217,7 @@ export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}
       })
       .sort((a, b) => {
         return b.likes - a.likes === 0 ?
-        a.id.toString().charCodeAt(0) - b.id.toString().charCodeAt(0) :
+        a.id - b.id :
         b.likes - a.likes
       })
       .map(user => {return {
