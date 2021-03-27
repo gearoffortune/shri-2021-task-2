@@ -1,5 +1,6 @@
 
 // const { CleanWebpackPlugin } = require('clean-webpack-plugin')
+const PrettierPlugin = require("prettier-webpack-plugin");
 const path = require('path')
 
 module.exports = {
@@ -20,6 +21,7 @@ module.exports = {
   plugins: [
     // Removes/cleans build folders and unused assets when rebuilding
     // new CleanWebpackPlugin(),
+    new PrettierPlugin,
   ],
 
   // Determine how modules within the project are treated
