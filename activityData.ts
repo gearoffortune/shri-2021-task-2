@@ -12,7 +12,7 @@ export function getActivityData(currentSprint: Sprint, currentCommits: Commit[])
   })
   return {
     title: "Коммиты, 1 неделя",
-    subtitle: `Спринт № ${currentSprint.id}`,
+    subtitle: currentSprint.name,
     data: {
       mon: numberOfCommitsByHour[0],
       tue: numberOfCommitsByHour[1],

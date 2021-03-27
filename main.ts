@@ -1,4 +1,4 @@
-import { ActivityData, ChartData, DiagramData, LeadersData, StoryData, VoteData } from './examples/stories';
+import { ActivityData, ChartData, DiagramData, LeadersData, StoryData, VoteData, User as StoryUser } from './examples/stories';
 import {Commit, Entity, Sprint, User, Comment, SprintId, Summary} from './examples/types'
 //@ts-ignore
 import {getActivityData} from './activityData.ts'
@@ -24,7 +24,7 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
   const allCommits = entities.filter(entity => entity.type==='Commit') as Commit[];
 
   const commitsFromCurrentSprint = relevantToCurrentSprint.filter(x => x.type==='Commit') as Commit[];
-  const usersCommited = getCommitsByUsers(allUsers, commitsFromCurrentSprint)
+  const leadersData = getLeadersData(allUsers, commitsFromCurrentSprint)
 
   
   const commentsWithLikes = relevantToCurrentSprint.filter(entity => entity.type==='Comment'&&entity.likes.length > 0) as Comment[];
@@ -34,7 +34,7 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
   const diagramData = getDiagramData(commitsFromCurrentSprint, currentSprint, previousSprint);
   const activityData = getActivityData(currentSprint, commitsFromCurrentSprint);
   return [
-    {alias: 'leaders', data: usersCommited},
+    {alias: 'leaders', data: leadersData},
     {alias: 'vote', data: usersLiked},
     {alias: 'chart', data: chartData},
     {alias: 'diagram', data: diagramData},
@@ -102,7 +102,7 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
 
     return {
       title: "Размер Коммитов",
-      subtitle: `Спринт № ${currentSprint.id}`,
+      subtitle: currentSprint.name,
       totalText: `${polyglot.t('num_commits', currentCommits.length)}`,
       differenceText: `${
         diff > 0 ? `+${diff} с прошлого спринта` : `${diff} с прошлого спринта`
@@ -136,7 +136,7 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
     }
   }
 
-  function getCommitsByUsers(allUsers: User[], commits: Commit[]): LeadersData {
+  function getLeadersData(allUsers: User[], commits: Commit[]): LeadersData {
     return { 
       "title": "Больше всего коммитов",
       "subtitle": currentSprint.name,
@@ -155,7 +155,9 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
     return {
       title: "Коммиты",
       subtitle: currentSprint.name,
-      values: sprints.map(sprint => {
+      values: sprints
+      .sort((a, b) => b.id - a.id)
+      .map(sprint => {
         const relevantCommits = allCommits.filter(commit => sprint.startAt < commit.timestamp && commit.timestamp < sprint.finishAt);
         return {
           title: String(sprint.id),
@@ -167,7 +169,7 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
     }
   }
   
-  function getUsersSortByCommits(allUsers: User[], commits: Commit[]): import("/home/gearoffortune/shri-2021-task-2/examples/stories").User[] {
+  function getUsersSortByCommits(allUsers: User[], commits: Commit[]): StoryUser[] {
     return allUsers.map(user => {
       return {
         id: user.id,
@@ -179,7 +181,13 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
       };
     })
       .sort((a, b) => b.commits - a.commits)
-      .map(user => { return { ...user, commits: undefined, valueText: String(user.commits) }; });
+      .map(user => { return { 
+        id: user.id, 
+        name: user.name, 
+        avatar: user.avatar, 
+        valueText: String(user.commits) 
+      }; 
+    });
   }
 
   function getLikesByUsers(allUsers: User[], commentsWithLikes: Comment[]): VoteData {
@@ -197,7 +205,13 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
           }, 0) };
       })
       .sort((a, b) => b.likes - a.likes)
-      .map(user => {return {...user, likes: undefined, valueText: String(user.likes)}})
+      .map(user => {return {
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar,
+        valueText: String(user.likes)
+      }
+    })
     }
   }
 }
