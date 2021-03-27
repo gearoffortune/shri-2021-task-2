@@ -11,8 +11,7 @@ module.exports = {
     path: path.resolve(__dirname, 'build/'),
     filename: 'index.js',
     library: {
-      name: 'PrepareData',
-      type: 'umd',
+      type: 'commonjs',
     }
 
   },
