@@ -1,12 +1,11 @@
 import { ActivityData, ChartData, DiagramData, LeadersData, StoryData, VoteData, User as StoryUser } from './examples/stories';
 import {Commit, Entity, Sprint, User, Comment, SprintId, Summary} from './examples/types'
-//@ts-ignore
 import {getActivityData} from './activityData.ts'
 const Polyglot = require('node-polyglot')
 // const json = require('./examples/input.json') as Entity[];
 
 
-function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): StoryData {
+export function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): StoryData {
   const sprints = entities.filter(entity => entity.type==='Sprint') as Sprint[];
   const currentSprint = sprints.filter(sprint => sprint.id === sprintId)[0];
   const previousSprint = sprints.filter(sprint => sprint.id === sprintId - 1)[0];
@@ -28,14 +27,14 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
 
   
   const commentsWithLikes = relevantToCurrentSprint.filter(entity => entity.type==='Comment'&&entity.likes.length > 0) as Comment[];
-  const usersLiked = getLikesByUsers(allUsers, commentsWithLikes)
-  const chartData = getCommitsInASprint(allUsers, allCommits, commitsFromCurrentSprint, sprints, currentSprint)
+  const voteData = getVoteData(allUsers, commentsWithLikes)
+  const chartData = getChartData(allUsers, allCommits, commitsFromCurrentSprint, sprints, currentSprint)
   const polyglot = new Polyglot({ locale: "ru" });
   const diagramData = getDiagramData(commitsFromCurrentSprint, currentSprint, previousSprint);
   const activityData = getActivityData(currentSprint, commitsFromCurrentSprint);
   return [
     {alias: 'leaders', data: leadersData},
-    {alias: 'vote', data: usersLiked},
+    {alias: 'vote', data: voteData},
     {alias: 'chart', data: chartData},
     {alias: 'diagram', data: diagramData},
     {alias: 'activity', data: activityData}
@@ -80,14 +79,14 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
       currentCommitsWithLOC.filter(commit => commit.linesOfCode > 100 && commit.linesOfCode <= 500),
       currentCommitsWithLOC.filter(commit => commit.linesOfCode > 0 && commit.linesOfCode <= 100),
     ]
-    .map(commits => commits.reduce((acc, iter) => acc + iter.linesOfCode, 0))
+    .map(commits => commits.reduce((acc, iter) => acc + 1, 0))
     const prevByAmount = [
       prevCommitsWithLOC.filter(commit => commit.linesOfCode > 1000),
       prevCommitsWithLOC.filter(commit => commit.linesOfCode > 500 && commit.linesOfCode <= 1000),
       prevCommitsWithLOC.filter(commit => commit.linesOfCode > 100 && commit.linesOfCode <= 500),
       prevCommitsWithLOC.filter(commit => commit.linesOfCode > 0 && commit.linesOfCode <= 100),
     ]
-    .map(commits => commits.reduce((acc, iter) => acc + iter.linesOfCode, 0))
+    .map(commits => commits.reduce((acc, iter) => acc + 1, 0))
 
     function getDifferenceText(a:number, b: number): string {
       const difference = a - b;
@@ -101,7 +100,7 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
     }
 
     return {
-      title: "Размер Коммитов",
+      title: "Размер коммитов",
       subtitle: currentSprint.name,
       totalText: `${polyglot.t('num_commits', currentCommits.length)}`,
       differenceText: `${
@@ -145,7 +144,7 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
     };
   }
 
-  function getCommitsInASprint(
+  function getChartData(
     allUsers: User[], 
     allCommits: Commit[], 
     currentCommits: Commit[], 
@@ -156,14 +155,20 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
       title: "Коммиты",
       subtitle: currentSprint.name,
       values: sprints
-      .sort((a, b) => b.id - a.id)
+      .sort((a, b) => a.id - b.id)
       .map(sprint => {
         const relevantCommits = allCommits.filter(commit => sprint.startAt < commit.timestamp && commit.timestamp < sprint.finishAt);
-        return {
+        return sprint.id === currentSprint.id ? {
           title: String(sprint.id),
           value: relevantCommits.length,
-          active: sprint.id === currentSprint.id ? true : undefined,
+          active: true,
+          hint: sprint.name
+        } : {
+          title: String(sprint.id),
+          value: relevantCommits.length,
+          hint: sprint.name
         }
+
       }),
       users: getUsersSortByCommits(allUsers, currentCommits)
     }
@@ -180,7 +185,11 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
         }, 0)
       };
     })
-      .sort((a, b) => b.commits - a.commits)
+      .sort((a, b) => {
+        return b.commits - a.commits === 0 ?
+        a.id - b.id :
+        b.commits - a.commits
+      })
       .map(user => { return { 
         id: user.id, 
         name: user.name, 
@@ -190,7 +199,9 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
     });
   }
 
-  function getLikesByUsers(allUsers: User[], commentsWithLikes: Comment[]): VoteData {
+  function getVoteData(allUsers: User[], commentsWithLikes: Comment[]): VoteData {
+    const polyglot = new Polyglot({ locale: "ru" });
+    polyglot.extend({num_votes: "%{smart_count} голос |||| %{smart_count} голоса |||| %{smart_count} голосов "})
     return {
       "title": "Самый 🔎 внимательный разработчик",
       "subtitle": currentSprint.name,
@@ -204,16 +215,20 @@ function prepareData(entities: Entity[], {sprintId}: {sprintId: SprintId}): Stor
            return iter.author === user || iter.author === user.id ? accum + iter.likes.length : accum 
           }, 0) };
       })
-      .sort((a, b) => b.likes - a.likes)
+      .sort((a, b) => {
+        return b.likes - a.likes === 0 ?
+        a.id - b.id :
+        b.likes - a.likes
+      })
       .map(user => {return {
         id: user.id,
         name: user.name,
         avatar: user.avatar,
-        valueText: String(user.likes)
+        valueText: polyglot.t('num_votes', user.likes)
       }
     })
     }
   }
 }
-// console.log(JSON.stringify(prepareData(json, {sprintId: 990})));
+// console.log(JSON.stringify(prepareData(json, {sprintId: 977})));
 module.exports = { prepareData }
