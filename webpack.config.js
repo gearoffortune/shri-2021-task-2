@@ -9,7 +9,7 @@ module.exports = {
   // Where webpack outputs the assets and bundles
   output: {
     path: path.resolve(__dirname, 'build/'),
-    filename: '[name].js',
+    filename: 'index.js',
     library: {
       name: 'PrepareData',
       type: 'umd',
